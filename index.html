@@ -1,3 +1,721 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DRA Hub — Unimax Laboratories</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f4f4f1;font-size:13px;color:#111}
+.layout{display:flex;height:100vh;overflow:hidden}
+
+/* SIDEBAR */
+#sidebar{width:210px;background:#fff;border-right:1px solid #e0e0dc;display:flex;flex-direction:column;flex-shrink:0;overflow-y:auto}
+.logo{padding:16px 14px 12px;border-bottom:1px solid #e0e0dc}
+.logo h1{font-size:15px;font-weight:700;color:#1B3A6B}
+.logo p{font-size:11px;color:#999;margin-top:2px}
+.nav-group{padding:10px 8px 4px}
+.nav-label{font-size:10px;color:#bbb;font-weight:700;letter-spacing:.07em;text-transform:uppercase;padding:0 6px;margin-bottom:4px}
+.nav-btn{display:flex;align-items:center;justify-content:space-between;padding:7px 10px;border-radius:7px;cursor:pointer;color:#555;transition:all .12s;margin-bottom:1px;user-select:none;border:none;background:none;width:100%;text-align:left;font-size:12px}
+.nav-btn:hover{background:#f0f0ed;color:#111}
+.nav-btn.active{background:#dbeafe;color:#1d4ed8;font-weight:700}
+.nav-badge{font-size:10px;font-weight:700;padding:1px 6px;border-radius:10px}
+.nav-badge.red{background:#fee2e2;color:#dc2626}
+.nav-badge.amber{background:#fef3c7;color:#d97706}
+.nav-badge.blue{background:#dbeafe;color:#1d4ed8}
+.mkt-btn{padding:5px 10px;font-size:11px;cursor:pointer;color:#666;border-radius:6px;margin-bottom:1px;border:none;background:none;width:100%;text-align:left}
+.mkt-btn:hover{background:#f0f0ed;color:#111}
+.mkt-btn.active{background:#dbeafe;color:#1d4ed8;font-weight:700}
+
+/* MAIN */
+#main{flex:1;display:flex;flex-direction:column;overflow:hidden}
+#topbar{padding:12px 18px;background:#fff;border-bottom:1px solid #e0e0dc;display:flex;align-items:center;gap:12px;flex-shrink:0}
+#page-title{font-size:15px;font-weight:700;color:#111;flex:1}
+#search{padding:7px 12px;border:1px solid #e0e0dc;border-radius:8px;font-size:12px;width:220px;outline:none;background:#f8f8f5}
+#search:focus{border-color:#3b82f6;background:#fff}
+.refresh-btn{padding:6px 14px;background:#1B3A6B;color:#fff;border:none;border-radius:7px;font-size:11px;font-weight:600;cursor:pointer}
+.refresh-btn:hover{background:#0F2754}
+#content{flex:1;overflow-y:auto;padding:16px 18px}
+
+/* LOADING */
+.loading{display:flex;align-items:center;justify-content:center;height:200px;flex-direction:column;gap:12px}
+.spinner{width:32px;height:32px;border:3px solid #e0e0dc;border-top-color:#1B3A6B;border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading-text{font-size:13px;color:#999}
+
+/* ERROR */
+.error-box{background:#fee2e2;border:1px solid #fca5a5;border-radius:10px;padding:16px;margin-bottom:12px}
+.error-box h4{font-size:13px;font-weight:700;color:#dc2626;margin-bottom:6px}
+.error-box p{font-size:12px;color:#7f1d1d;line-height:1.5}
+
+/* STATS */
+.stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px}
+.stat-card{background:#fff;border:1px solid #e0e0dc;border-radius:10px;padding:14px;cursor:pointer;transition:border-color .12s}
+.stat-card:hover{border-color:#aaa}
+.stat-lbl{font-size:11px;color:#999;margin-bottom:4px}
+.stat-val{font-size:24px;font-weight:800}
+.stat-sub{font-size:10px;color:#bbb;margin-top:2px}
+.stat-val.green{color:#16a34a}.stat-val.red{color:#dc2626}.stat-val.amber{color:#d97706}.stat-val.blue{color:#1d4ed8}
+
+/* SECTION */
+.sec-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;margin-top:4px}
+.sec-title{font-size:13px;font-weight:700;color:#111}
+.filter-row{display:flex;gap:5px;flex-wrap:wrap}
+.filt-btn{font-size:11px;padding:4px 9px;border-radius:7px;border:1px solid #e0e0dc;background:#fff;color:#666;cursor:pointer}
+.filt-btn:hover{border-color:#999;color:#111}
+.filt-btn.on{background:#dbeafe;color:#1d4ed8;border-color:#93c5fd;font-weight:700}
+
+/* PRODUCT GRID */
+.prod-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px}
+.prod-card{background:#fff;border:1px solid #e0e0dc;border-radius:10px;padding:13px;cursor:pointer;transition:all .12s}
+.prod-card:hover{border-color:#999;box-shadow:0 1px 4px rgba(0,0,0,.06)}
+.prod-card.sel{border-color:#3b82f6;background:#eff6ff}
+.prod-name{font-size:13px;font-weight:700;color:#111;margin-bottom:2px}
+.prod-form{font-size:11px;color:#999;margin-bottom:8px}
+.pills{display:flex;flex-wrap:wrap;gap:3px;margin-bottom:7px}
+.pill{font-size:10px;padding:2px 7px;border-radius:9px;font-weight:700}
+.pill.ok{background:#dcfce7;color:#15803d}
+.pill.warn{background:#fef3c7;color:#b45309}
+.pill.danger{background:#fee2e2;color:#dc2626}
+.pill.pending{background:#dbeafe;color:#1d4ed8}
+.pill.new{background:#ede9fe;color:#7c3aed}
+.pill.gray{background:#f3f4f6;color:#6b7280}
+.prod-footer{display:flex;align-items:center;justify-content:space-between}
+.doc-ct{font-size:11px;color:#999}
+
+/* PANEL */
+.panel{background:#fff;border:1px solid #e0e0dc;border-radius:10px;overflow:hidden;margin-bottom:12px}
+.panel-hdr{padding:12px 14px;border-bottom:1px solid #e0e0dc;display:flex;align-items:center;gap:10px}
+.panel-tabs{display:flex;border-bottom:1px solid #e0e0dc;overflow-x:auto}
+.panel-tab{padding:9px 14px;font-size:12px;color:#666;cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap;font-weight:500;border:none;background:none}
+.panel-tab:hover{color:#111}
+.panel-tab.on{color:#1d4ed8;border-bottom:2px solid #1d4ed8;font-weight:700}
+.panel-body{padding:12px}
+
+/* TABLE */
+.data-table{width:100%;border-collapse:collapse;font-size:12px}
+.data-table th{background:#f8f8f5;padding:8px 12px;text-align:left;font-weight:700;color:#555;border-bottom:1px solid #e0e0dc;white-space:nowrap}
+.data-table td{padding:8px 12px;border-bottom:1px solid #f0f0ed;vertical-align:middle}
+.data-table tr:last-child td{border-bottom:none}
+.data-table tr:hover td{background:#fafaf8}
+
+/* STATUS BADGES */
+.sbadge{font-size:10px;font-weight:700;padding:2px 8px;border-radius:9px;white-space:nowrap}
+.sbadge.registered{background:#dcfce7;color:#15803d}
+.sbadge.pending{background:#fef3c7;color:#b45309}
+.sbadge.new{background:#ede9fe;color:#7c3aed}
+.sbadge.review{background:#dbeafe;color:#1d4ed8}
+.sbadge.discontinued{background:#f3f4f6;color:#6b7280}
+.sbadge.expired{background:#fee2e2;color:#dc2626}
+.alert-badge{font-size:10px;font-weight:700;padding:2px 8px;border-radius:9px}
+.alert-badge.urgent{background:#fee2e2;color:#dc2626}
+.alert-badge.due{background:#fef3c7;color:#b45309}
+.alert-badge.ok{background:#dcfce7;color:#15803d}
+.alert-badge.none{background:#f3f4f6;color:#9ca3af}
+
+/* QUERY CARD */
+.qcard{background:#fff;border:1px solid #e0e0dc;border-radius:10px;overflow:hidden;margin-bottom:10px}
+.qcard-hdr{padding:10px 13px;background:#f8f8f5;border-bottom:1px solid #e0e0dc;display:flex;align-items:center;gap:8px}
+.qtag{font-size:10px;padding:2px 8px;border-radius:9px;font-weight:700}
+.qtag.open{background:#fee2e2;color:#dc2626}
+.qtag.resolved{background:#dcfce7;color:#15803d}
+.qtag.awaiting{background:#fef3c7;color:#b45309}
+.qcard-body{padding:11px 13px;font-size:12px;color:#444;line-height:1.6}
+.qcard-footer{padding:8px 13px;display:flex;align-items:center;justify-content:space-between;border-top:1px solid #f0f0ed}
+.qmeta{font-size:11px;color:#999}
+
+/* PARTY CARD */
+.party-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.party-card{background:#fff;border:1px solid #e0e0dc;border-radius:10px;padding:14px}
+.party-name{font-size:14px;font-weight:700;color:#111;margin-bottom:4px}
+.party-countries{font-size:11px;color:#666;margin-bottom:10px;line-height:1.5}
+.party-contact{font-size:12px;color:#999;padding:6px 0;border-top:1px solid #f0f0ed}
+.party-contact.filled{color:#111}
+.contact-label{font-size:10px;color:#bbb;font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin-bottom:1px}
+.missing-contact{font-size:11px;color:#d97706;background:#fef3c7;padding:4px 8px;border-radius:6px;margin-top:6px}
+
+/* DOC ROW */
+.doc-row{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;margin-bottom:2px;transition:background .1s}
+.doc-row:hover{background:#f8f8f5}
+.doc-ico{width:32px;height:32px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;flex-shrink:0}
+.doc-ico.cert{background:#dcfce7;color:#15803d}
+.doc-ico.pdf{background:#fee2e2;color:#dc2626}
+.doc-ico.img{background:#dbeafe;color:#1d4ed8}
+.doc-ico.dat{background:#ede9fe;color:#7c3aed}
+.doc-ico.lic{background:#fef3c7;color:#b45309}
+.doc-inf{flex:1;min-width:0}
+.doc-name{font-size:12px;font-weight:600;color:#111;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.doc-meta{font-size:10px;color:#999;margin-top:1px}
+.drive-link{font-size:11px;color:#1d4ed8;padding:3px 8px;border-radius:6px;border:1px solid #93c5fd;background:#dbeafe;text-decoration:none;white-space:nowrap}
+.drive-link:hover{background:#bfdbfe}
+
+/* EXPIRY ROW */
+.exp-row{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:8px;margin-bottom:4px}
+.exp-row:hover{background:#f8f8f5}
+.exp-inf{flex:1}
+.exp-doc{font-size:13px;font-weight:700;color:#111}
+.exp-prod{font-size:11px;color:#999}
+.exp-date{font-size:12px;font-weight:700}
+.exp-date.urgent{color:#dc2626}
+.exp-date.due{color:#d97706}
+.exp-date.ok{color:#16a34a}
+
+/* EMPTY STATE */
+.empty{text-align:center;padding:50px 20px;color:#bbb}
+.empty-icon{font-size:32px;margin-bottom:8px}
+.empty-text{font-size:13px}
+
+/* INFO BANNER */
+.info-banner{background:#eff6ff;border:1px solid #93c5fd;border-radius:9px;padding:10px 14px;margin-bottom:12px;font-size:12px;color:#1d4ed8;line-height:1.5}
+</style>
+</head>
+<body>
+<div class="layout">
+
+<div id="sidebar">
+  <div class="logo">
+    <h1>DRA Hub</h1>
+    <p>Unimax Laboratories</p>
+  </div>
+  <div class="nav-group">
+    <div class="nav-label">Workspace</div>
+    <button class="nav-btn active" id="nb-dashboard" onclick="go('dashboard')">▦ &nbsp;Dashboard</button>
+    <button class="nav-btn" id="nb-products" onclick="go('products')">◫ &nbsp;Products</button>
+    <button class="nav-btn" id="nb-registrations" onclick="go('registrations')">📋 &nbsp;Registrations</button>
+    <button class="nav-btn" id="nb-documents" onclick="go('documents')">📄 &nbsp;Documents</button>
+    <button class="nav-btn" id="nb-parties" onclick="go('parties')">🤝 &nbsp;Parties</button>
+    <button class="nav-btn" id="nb-queries" onclick="go('queries')">✉ &nbsp;Query inbox <span class="nav-badge blue" id="query-count">—</span></button>
+    <button class="nav-btn" id="nb-suppliers" onclick="go('suppliers')">🏭 &nbsp;Suppliers</button>
+  </div>
+  <div class="nav-group">
+    <div class="nav-label">Alerts</div>
+    <button class="nav-btn" id="nb-expiry" onclick="go('expiry')">◷ &nbsp;Expiring <span class="nav-badge amber" id="expiry-count">—</span></button>
+    <button class="nav-btn" id="nb-archive" onclick="go('archive')">📦 &nbsp;Archive</button>
+  </div>
+  <div class="nav-group" id="market-nav" style="padding-bottom:12px">
+    <div class="nav-label">Filter by market</div>
+  </div>
+</div>
+
+<div id="main">
+  <div id="topbar">
+    <div id="page-title">Dashboard</div>
+    <input id="search" type="text" placeholder="Search products, registrations..." oninput="handleSearch(this.value)">
+    <button class="refresh-btn" onclick="loadAllData()">↻ Refresh</button>
+  </div>
+  <div id="content">
+    <div class="loading" id="initial-loading">
+      <div class="spinner"></div>
+      <div class="loading-text">Loading live data from Google Sheets...</div>
+    </div>
+  </div>
+</div>
+
+</div>
+
+<script>
+const SHEET_ID = '1jTQPPfz_YcdqnJILmT4qYSfVsnHFOaxExydTX8_k-mM';
+const BASE = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&headers=2&sheet=`;
+
+let DB = { products:[], registrations:[], parties:[], suppliers:[], documents:[], queries:[], archive:[] };
+let currentView = 'dashboard';
+let selectedProduct = null;
+let activeTab = 'regs';
+let marketFilter = 'all';
+let dataLoaded = false;
+
+// ── fetch one sheet ──────────────────────────────────────────────────────────
+async function fetchSheet(sheetName) {
+  const url = BASE + encodeURIComponent(sheetName);
+  const res = await fetch(url);
+  const text = await res.text();
+  const json = JSON.parse(text.replace(/^.*?({.*}).*?$/s, '$1'));
+  if (!json.table || !json.table.rows) return [];
+  // Clean column names - strip newlines, extra spaces
+  const cols = json.table.cols.map(c => (c.label || '').replace(/\n/g, ' ').replace(/\s+/g, ' ').trim());
+  return json.table.rows.slice(1).map(row => {
+    const obj = {};
+    cols.forEach((col, i) => {
+      const cell = row.c && row.c[i];
+      const val = cell ? (cell.f !== undefined && cell.f !== null ? String(cell.f) : cell.v !== undefined && cell.v !== null ? String(cell.v) : '') : '';
+      if (col) obj[col] = val.trim();
+    });
+    return obj;
+  }).filter(r => Object.values(r).some(v => v !== '' && v !== null && v !== 'null'));
+}
+
+// ── load all sheets ──────────────────────────────────────────────────────────
+async function loadAllData() {
+  document.getElementById('content').innerHTML = `
+    <div class="loading">
+      <div class="spinner"></div>
+      <div class="loading-text">Loading live data from Google Sheets...</div>
+    </div>`;
+  try {
+    // Try multiple possible sheet name variants
+    const trySheets = async (...names) => {
+      for (const name of names) {
+        try { const r = await fetchSheet(name); if (r.length > 0) return r; } catch(e) {}
+      }
+      return [];
+    };
+    const [products, registrations, parties, documents, queries, archive, suppliers] = await Promise.all([
+      trySheets('1_Products','Products'),
+      trySheets('2_Registrations','Registrations'),
+      trySheets('3a_Parties','3_Parties','Parties'),
+      trySheets('4_Documents','Documents'),
+      trySheets('5_Queries','Queries'),
+      trySheets('6_Archive','Archive'),
+      trySheets('3b_Suppliers','Suppliers'),
+    ]);
+    DB.products = products;
+    DB.registrations = registrations;
+    DB.parties = parties;
+    DB.documents = documents;
+    DB.queries = queries;
+    DB.archive = archive;
+    DB.suppliers = suppliers || [];
+    console.log("Products cols:", DB.products[0] ? Object.keys(DB.products[0]) : "none");
+    console.log("Docs loaded:", DB.documents.length, "rows");
+    if(DB.documents[0]) console.log("Doc cols:", Object.keys(DB.documents[0]));
+    if(DB.registrations[0]) console.log("Reg cols:", Object.keys(DB.registrations[0]));
+    dataLoaded = true;
+    buildMarketNav();
+    updateBadges();
+    render();
+  } catch(e) {
+    document.getElementById('content').innerHTML = `
+      <div class="error-box">
+        <h4>Could not load data from Google Sheets</h4>
+        <p>Make sure the sheet is shared as "Anyone with the link can view".<br>
+        Error: ${e.message}<br><br>
+        <strong>Sheet ID:</strong> ${SHEET_ID}</p>
+      </div>`;
+  }
+}
+
+// ── helpers ──────────────────────────────────────────────────────────────────
+function getVal(row, ...keys) {
+  for (const k of keys) {
+    const exact = Object.keys(row).find(rk => rk.toLowerCase().trim() === k.toLowerCase().trim());
+    if (exact && row[exact] !== "" && row[exact] !== null && row[exact] !== undefined) return String(row[exact]).trim();
+    const partial = Object.keys(row).find(rk => rk.toLowerCase().includes(k.toLowerCase()));
+    if (partial && row[partial] !== "" && row[partial] !== null && row[partial] !== undefined) return String(row[partial]).trim();
+  }
+  return "";
+}
+
+function getStatusClass(s) {
+  if (!s) return 'gray';
+  const sl = s.toLowerCase();
+  if (sl.includes('registered')) return 'ok';
+  if (sl.includes('pending') || sl.includes('renewal')) return 'warn';
+  if (sl.includes('new') || sl.includes('submitted')) return 'new';
+  if (sl.includes('review')) return 'pending';
+  if (sl.includes('discontinued')) return 'danger';
+  return 'gray';
+}
+
+function getAlertClass(alert) {
+  if (!alert) return 'none';
+  const a = alert.toUpperCase();
+  if (a === 'EXPIRED' || a === 'URGENT') return 'urgent';
+  if (a.includes('DUE') || a.includes('SOON')) return 'due';
+  if (a === 'OK') return 'ok';
+  return 'none';
+}
+
+function expiringRegs() {
+  return DB.registrations.filter(r => {
+    const alert = getVal(r,'Expiry Alert','expiry alert','alert');
+    if (alert && (alert.toUpperCase().includes('URGENT') || alert.toUpperCase().includes('DUE') || alert.toUpperCase().includes('EXPIRED'))) return true;
+    // Also check status
+    const status = getVal(r,'Registration Status','registration status','status');
+    return status && (status.toLowerCase().includes('pending renewal') || status.toLowerCase().includes('under review'));
+  });
+}
+
+function openQueries() {
+  return DB.queries.filter(r => {
+    const s = getVal(r, 'status').toLowerCase();
+    return s === 'open' || s === '';
+  });
+}
+
+function buildMarketNav() {
+  const countries = [...new Set(DB.registrations.map(r => getVal(r, 'country')).filter(Boolean))].sort();
+  const nav = document.getElementById('market-nav');
+  let html = '<div class="nav-label">Filter by market</div>';
+  html += `<button class="mkt-btn ${marketFilter==='all'?'active':''}" onclick="setMarket('all')">All markets</button>`;
+  countries.forEach(c => {
+    html += `<button class="mkt-btn ${marketFilter===c?'active':''}" onclick="setMarket('${c.replace(/'/g,"\\'")}')"> ${c}</button>`;
+  });
+  nav.innerHTML = html;
+}
+
+function updateBadges() {
+  const qc = openQueries().length;
+  const ec = expiringRegs().length;
+  document.getElementById('query-count').textContent = qc || '—';
+  document.getElementById('expiry-count').textContent = ec || '—';
+}
+
+function setMarket(m) {
+  marketFilter = m;
+  currentView = 'registrations';
+  document.querySelectorAll('.mkt-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('nb-registrations').classList.add('active');
+  document.getElementById('page-title').textContent = m === 'all' ? 'Registrations' : `Registrations · ${m}`;
+  buildMarketNav();
+  render();
+}
+
+function go(v) {
+  currentView = v;
+  selectedProduct = null;
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  const el = document.getElementById('nb-' + v);
+  if (el) el.classList.add('active');
+  const titles = {
+    dashboard:'Dashboard', products:'Products', registrations:'Registrations',
+    documents:'Documents', parties:'Parties', queries:'Query inbox',
+    expiry:'Expiring registrations', archive:'Archive'
+  };
+  document.getElementById('page-title').textContent = titles[v] || v;
+  document.getElementById('search').value = '';
+  render();
+}
+
+function selectProduct(brand) {
+  selectedProduct = brand;
+  activeTab = 'regs';
+  render();
+}
+
+function setTab(t) { activeTab = t; render(); }
+
+function handleSearch(val) {
+  if (!val.trim()) { render(); return; }
+  const v = val.toLowerCase();
+  const mp = DB.products.filter(p => getVal(p,'Brand Name (as on DRC / artwork)','Brand Name','brand name','brand').toLowerCase().includes(v) || getVal(p,'Generic Name (INN — verify vs DRC)','Generic Name','generic name','generic').toLowerCase().includes(v));
+  const mr = DB.registrations.filter(r => getVal(r,'Brand Name','brand name','brand').toLowerCase().includes(v) || getVal(r,'Country','country').toLowerCase().includes(v) || getVal(r,'Party','party').toLowerCase().includes(v));
+  let h = `<div class="sec-hdr"><div class="sec-title">Results for "${val}"</div></div>`;
+  if (mp.length) h += renderProductGrid(mp);
+  if (mr.length) h += `<div class="sec-hdr" style="margin-top:10px"><div class="sec-title">Registrations (${mr.length})</div></div>` + renderRegTable(mr);
+  if (!mp.length && !mr.length) h += `<div class="empty"><div class="empty-icon">🔍</div><div class="empty-text">No results found for "${val}"</div></div>`;
+  document.getElementById('content').innerHTML = h;
+}
+
+// ── renderers ────────────────────────────────────────────────────────────────
+function renderProductGrid(prods) {
+  if (!prods.length) return `<div class="empty"><div class="empty-icon">📦</div><div class="empty-text">No products found</div></div>`;
+  return `<div class="prod-grid">${prods.map(p => {
+    const brand = getVal(p,'Brand Name (as on DRC / artwork)','Brand Name','brand name','brand');
+    const generic = getVal(p,'Generic Name (INN — verify vs DRC)','Generic Name','generic name','generic');
+    const strength = getVal(p,'Strength','strength');
+    const form = getVal(p,'Dosage Form','dosage form','form');
+    const markets = getVal(p,'Active Markets','active markets','markets');
+    const driveLink = getVal(p,'Drive Folder Link (paste when ready)','Drive Folder Link','drive folder','drive');
+    const regs = DB.registrations.filter(r => getVal(r,'Brand Name','brand name','brand').toLowerCase() === brand.toLowerCase());
+    const statuses = [...new Set(regs.map(r => getVal(r,'registration status','status')))];
+    return `<div class="prod-card ${selectedProduct===brand?'sel':''}" onclick="selectProduct('${brand.replace(/'/g,"\\'")}')">
+      <div class="prod-name">${brand}</div>
+      <div class="prod-form">${[generic ? generic.split(' ').slice(0,4).join(' ') : '', strength, form].filter(v=>v).join(' · ') || 'No generic name logged'}</div>
+      <div class="pills">${statuses.map(s => `<span class="pill ${getStatusClass(s)}">${s||'—'}</span>`).join('')}</div>
+      <div class="prod-footer">
+        <span class="doc-ct">${regs.length} registration${regs.length!==1?'s':''} · ${markets.split(',').length} market${markets.split(',').length!==1?'s':''}</span>
+        ${driveLink ? `<a href="${driveLink}" target="_blank" class="drive-link" onclick="event.stopPropagation()">📁 Drive</a>` : ''}
+      </div>
+    </div>`;
+  }).join('')}</div>`;
+}
+
+function renderProductPanel() {
+  const p = DB.products.find(p => getVal(p,'Brand Name (as on DRC / artwork)','Brand Name','brand name','brand') === selectedProduct);
+  if (!p) return '';
+  const brand = getVal(p, 'brand','brand name');
+  const generic = getVal(p,'Generic Name (INN — verify vs DRC)','Generic Name','generic name','generic');
+  const strength = getVal(p,'Strength','strength');
+  const form = getVal(p, 'dosage','form');
+  const driveLink = getVal(p,'Drive Folder Link (paste when ready)','Drive Folder Link','drive folder','drive');
+  const regs = DB.registrations.filter(r => getVal(r,'Brand Name','brand name','brand').toLowerCase() === brand.toLowerCase());
+  const docs = DB.documents.filter(d => {
+    const scope = getVal(d,'Scope','scope').toLowerCase();
+    const prod = getVal(d,'Product (Brand Name)','product (brand name)','product','brand').toLowerCase();
+    return scope === 'company' || prod === brand.toLowerCase() || prod.includes(brand.toLowerCase());
+  });
+
+  return `<div class="panel">
+    <div class="panel-hdr">
+      <div style="flex:1">
+        <div style="font-size:14px;font-weight:700;color:#111">${brand}</div>
+        <div style="font-size:11px;color:#999">${[generic.split(' ').slice(0,4).join(' '), strength, form].filter(Boolean).join(' · ')}</div>
+      </div>
+      ${driveLink ? `<a href="${driveLink}" target="_blank" class="drive-link">📁 Open in Drive</a>` : ''}
+    </div>
+    <div class="panel-tabs">
+      ${[['regs',`Registrations (${regs.length})`],['docs',`Documents (${docs.length})`],['artwork','Artwork']].map(([t,l]) =>
+        `<button class="panel-tab ${activeTab===t?'on':''}" onclick="setTab('${t}')">${l}</button>`
+      ).join('')}
+    </div>
+    <div class="panel-body">
+      ${activeTab==='regs' ? renderRegTable(regs) : ''}
+      ${activeTab==='docs' ? (docs.length ? docs.map(renderDocRow).join('') : '<div class="empty"><div class="empty-text">No documents logged yet — add them to Sheet 4</div></div>') : ''}
+      ${activeTab==='artwork' ? renderArtworkTab(brand) : ''}
+    </div>
+  </div>`;
+}
+
+function renderRegTable(regs) {
+  if (!regs.length) return `<div class="empty"><div class="empty-text">No registrations found</div></div>`;
+  return `<table class="data-table">
+    <thead><tr><th>Product</th><th>Country</th><th>Party</th><th>Dossier Type</th><th>Status</th><th>Reg Number</th><th>Valid Until</th><th>Alert</th></tr></thead>
+    <tbody>${regs.map(r => {
+      const brand = getVal(r,'Brand Name','brand name','brand');
+      const country = getVal(r,'Country','country');
+      const party = getVal(r,'Party','party');
+      const dossier = getVal(r,'Dossier / Checklist Type','Dossier','dossier type','dossier');
+      const status = getVal(r,'Registration Status','registration status','status');
+      const regnum = getVal(r,'Registration No. (if available)','Registration No.','Registration No','reg number','regnum');
+      const validto = getVal(r,'Valid Up To','valid up to','expiry date','expiry');
+      const alert = getVal(r,'Expiry Alert','expiry alert','alert');
+      const driveLink = getVal(r,'drive');
+      return `<tr>
+        <td><strong>${brand}</strong></td>
+        <td>${country}</td>
+        <td>${party}</td>
+        <td><span style="font-size:11px;color:#666">${dossier}</span></td>
+        <td><span class="sbadge ${getStatusClass(status)}">${status||'—'}</span></td>
+        <td style="font-size:11px;color:#1d4ed8">${regnum||'—'}</td>
+        <td style="font-size:11px">${validto||'—'}</td>
+        <td>${alert ? `<span class="alert-badge ${getAlertClass(alert)}">${alert}</span>` : '—'}
+            ${driveLink ? `<a href="${driveLink}" target="_blank" class="drive-link" style="margin-left:4px">📁</a>` : ''}</td>
+      </tr>`;
+    }).join('')}</tbody>
+  </table>`;
+}
+
+function renderDocRow(d) {
+  const name = getVal(d,'Document Name','document name','name');
+  const type = getVal(d,'Document Type','document type','type');
+  const scope = getVal(d,'Scope','scope');
+  const product = getVal(d,'Product (Brand Name)','product','brand');
+  const version = getVal(d,'Version','version');
+  const expiry = getVal(d,'Expiry Date (DD-MM-YYYY)','expiry date','expiry');
+  const status = getVal(d,'Status','status');
+  const driveLink = getVal(d,'Drive File Link (paste when uploaded)','drive file link','drive');
+  const notes = getVal(d,'Notes','notes');
+  const typeStr = type || 'DOC';
+  const typeIco = typeStr.toLowerCase().includes('cert') ? 'cert' : typeStr.toLowerCase().includes('lic') ? 'lic' : typeStr.toLowerCase().includes('art') ? 'img' : typeStr.toLowerCase().includes('stab') ? 'dat' : 'pdf';
+  const statusColor = status === 'Valid' ? '#15803d' : status === 'Not Valid' ? '#dc2626' : '#d97706';
+  const statusBg = status === 'Valid' ? '#dcfce7' : status === 'Not Valid' ? '#fee2e2' : '#fef3c7';
+  return "<div class="doc-row">" +
+    "<div class="doc-ico " + typeIco + "">" + typeStr.substring(0,3).toUpperCase() + "</div>" +
+    "<div class="doc-inf">" +
+      "<div class="doc-name">" + name + (product && product !== '---' ? " <span style="font-size:10px;color:#999">· " + product + "</span>" : '') + "</div>" +
+      "<div class="doc-meta">" + [scope, version, expiry ? 'Expires: '+expiry : '', notes].filter(Boolean).join(' · ') + "</div>" +
+    "</div>" +
+    (status ? "<span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:7px;background:" + statusBg + ";color:" + statusColor + ";flex-shrink:0">" + status + "</span>" : '') +
+    (driveLink && driveLink.startsWith('http') ? "<a href="" + driveLink + "" target="_blank" class="drive-link">View file</a>" : '<span style="font-size:11px;color:#bbb">—</span>') +
+  "</div>";
+}
+
+function renderArtworkTab(brand) {
+  const artDocs = DB.documents.filter(d => {
+    const name = getVal(d,'document name','name').toLowerCase();
+    const prod = getVal(d,'Product (Brand Name)','product (brand name)','product','brand').toLowerCase();
+    return (name.includes('foil') || name.includes('carton') || name.includes('insert') || name.includes('artwork')) && prod.includes(brand.toLowerCase());
+  });
+  if (!artDocs.length) return `<div class="empty"><div class="empty-icon">🎨</div><div class="empty-text">No artwork documents logged yet</div></div>`;
+  return artDocs.map(renderDocRow).join('');
+}
+
+// ── view renderers ────────────────────────────────────────────────────────────
+function render() {
+  if (!dataLoaded) return;
+  const el = document.getElementById('content');
+
+  if (currentView === 'dashboard') {
+    const activeRegs = DB.registrations.filter(r => getVal(r,'Registration Status','registration status','status').toLowerCase() !== 'discontinued');
+    const expiring = expiringRegs();
+    const queries = openQueries();
+    const newProds = DB.registrations.filter(r => getVal(r,'Registration Status','registration status','status').toLowerCase().includes('new'));
+
+    el.innerHTML = `
+      <div class="stats-grid">
+        <div class="stat-card" onclick="go('products')">
+          <div class="stat-lbl">Products</div>
+          <div class="stat-val blue">${DB.products.length}</div>
+          <div class="stat-sub">in master library</div>
+        </div>
+        <div class="stat-card" onclick="go('registrations')">
+          <div class="stat-lbl">Active registrations</div>
+          <div class="stat-val green">${activeRegs.length}</div>
+          <div class="stat-sub">across ${[...new Set(activeRegs.map(r=>getVal(r,'Country','country')))].filter(Boolean).length} markets</div>
+        </div>
+        <div class="stat-card" onclick="go('expiry')">
+          <div class="stat-lbl">Expiry alerts</div>
+          <div class="stat-val ${expiring.length>0?'red':'green'}">${expiring.length}</div>
+          <div class="stat-sub">${expiring.length>0?'need attention':'all clear'}</div>
+        </div>
+        <div class="stat-card" onclick="go('queries')">
+          <div class="stat-lbl">Open queries</div>
+          <div class="stat-val ${queries.length>0?'amber':'green'}">${queries.length}</div>
+          <div class="stat-sub">awaiting response</div>
+        </div>
+      </div>
+
+      ${expiring.length > 0 ? `
+      <div class="sec-hdr"><div class="sec-title">⚠ Expiring registrations</div></div>
+      <div class="panel"><div class="panel-body">${expiring.slice(0,5).map(r => {
+        const brand = getVal(r,'Brand Name','brand name','brand');
+        const country = getVal(r,'Country','country');
+        const party = getVal(r,'Party','party');
+        const validto = getVal(r,'valid up to','valid','expiry');
+        const alert = getVal(r,'alert','expiry alert');
+        return `<div class="exp-row">
+          <div class="exp-inf"><div class="exp-doc">${brand}</div><div class="exp-prod">${country} · ${party}</div></div>
+          <div class="exp-date ${getAlertClass(alert)}">${validto||'—'}</div>
+          <span class="alert-badge ${getAlertClass(alert)}">${alert}</span>
+        </div>`;
+      }).join('')}</div></div>` : ''}
+
+      <div class="sec-hdr">
+        <div class="sec-title">Products</div>
+        <div class="filter-row">
+          <button class="filt-btn on" onclick="go('products')">View all →</button>
+        </div>
+      </div>
+      ${renderProductGrid(DB.products.slice(0,6))}
+
+      ${newProds.length > 0 ? `
+      <div class="sec-hdr" style="margin-top:8px"><div class="sec-title">🆕 New registrations in progress (${newProds.length})</div></div>
+      ${renderRegTable(newProds)}` : ''}
+    `;
+
+  } else if (currentView === 'products') {
+    el.innerHTML = `
+      <div class="sec-hdr">
+        <div class="sec-title">All products (${DB.products.length})</div>
+      </div>
+      ${renderProductGrid(DB.products)}
+      ${selectedProduct ? renderProductPanel() : ''}
+    `;
+
+  } else if (currentView === 'registrations') {
+    const regs = marketFilter === 'all' ? DB.registrations : DB.registrations.filter(r => getVal(r,'Country','country') === marketFilter);
+    const activeRegs = regs.filter(r => !getVal(r,'registration status','status').toLowerCase().includes('discontinued'));
+    el.innerHTML = `
+      <div class="sec-hdr">
+        <div class="sec-title">Registrations${marketFilter!=='all'?' · '+marketFilter:''} (${activeRegs.length} active)</div>
+        <div class="filter-row">
+          <button class="filt-btn ${marketFilter==='all'?'on':''}" onclick="setMarket('all')">All</button>
+          ${[...new Set(DB.registrations.map(r=>getVal(r,'Country','country')).filter(Boolean))].sort().map(c =>
+            `<button class="filt-btn ${marketFilter===c?'on':''}" onclick="setMarket('${c.replace(/'/g,"\\'")}'">${c}</button>`
+          ).join('')}
+        </div>
+      </div>
+      <div class="panel"><div class="panel-body">${renderRegTable(activeRegs)}</div></div>
+    `;
+
+  } else if (currentView === 'documents') {
+    const companyDocs = DB.documents.filter(d => (getVal(d,'Scope','scope') || '').toLowerCase().includes('company'));
+    const coppDocs = DB.documents.filter(d => (getVal(d,'Document Name','document name','name') || '').toLowerCase().includes('copp'));
+    const otherDocs = DB.documents.filter(d => !(getVal(d,'Scope','scope') || '').toLowerCase().includes('company') && !(getVal(d,'Document Name','document name','name') || '').toLowerCase().includes('copp'));
+    const validCount = DB.documents.filter(d => (getVal(d,'Status','status') || '').toLowerCase() === 'valid').length;
+    const invalidCount = DB.documents.filter(d => (getVal(d,'Status','status') || '').toLowerCase().includes('not valid')).length;
+    el.innerHTML =
+      '<div class="stats-grid" style="grid-template-columns:repeat(3,1fr)">' +
+        '<div class="stat-card"><div class="stat-lbl">Total documents</div><div class="stat-val blue">' + DB.documents.length + '</div></div>' +
+        '<div class="stat-card"><div class="stat-lbl">Valid</div><div class="stat-val green">' + validCount + '</div></div>' +
+        '<div class="stat-card"><div class="stat-lbl">Not valid / expired</div><div class="stat-val red">' + invalidCount + '</div></div>' +
+      '</div>' +
+      (companyDocs.length ? '<div class="sec-hdr"><div class="sec-title">Company documents (' + companyDocs.length + ')</div></div><div class="panel"><div class="panel-body">' + companyDocs.map(renderDocRow).join('') + '</div></div>' : '') +
+      (coppDocs.length ? '<div class="sec-hdr"><div class="sec-title">COPPs by market (' + coppDocs.length + ')</div></div><div class="panel"><div class="panel-body">' + coppDocs.map(renderDocRow).join('') + '</div></div>' : '') +
+      (otherDocs.length ? '<div class="sec-hdr"><div class="sec-title">Product documents (' + otherDocs.length + ')</div></div><div class="panel"><div class="panel-body">' + otherDocs.map(renderDocRow).join('') + '</div></div>' : '') +
+      (DB.documents.length === 0 ? '<div class="empty"><div class="empty-icon">📄</div><div class="empty-text">No documents loaded — check Sheet 4 tab name in Google Sheets</div></div>' : '');
+
+  } else if (currentView === 'parties') {
+    el.innerHTML = `
+      <div class="sec-hdr"><div class="sec-title">Parties (${DB.parties.length})</div></div>
+      <div class="party-grid">${DB.parties.map(p => {
+        const name = getVal(p,'Party Name','party name','name');
+        const countries = getVal(p,'Countries Covered','countries covered','countries');
+        const contact = getVal(p,'Contact Person','contact person','contact');
+        const email = getVal(p,'Email','email');
+        const phone = getVal(p,'Phone / WhatsApp','phone / whatsapp','phone','whatsapp');
+        const missing = !contact || contact.includes('fill in');
+        return `<div class="party-card">
+          <div class="party-name">${name}</div>
+          <div class="party-countries">${countries}</div>
+          <div class="party-contact ${missing?'':'filled'}">
+            <div class="contact-label">Contact</div>
+            <div>${missing ? '— not filled in —' : contact}</div>
+          </div>
+          <div class="party-contact ${!email||email.includes('fill in')?'':'filled'}">
+            <div class="contact-label">Email</div>
+            <div>${!email||email.includes('fill in') ? '— not filled in —' : email}</div>
+          </div>
+          ${missing ? `<div class="missing-contact">⚠ Contact details needed — fill in Sheet 3</div>` : ''}
+        </div>`;
+      }).join('')}</div>
+    `;
+
+  } else if (currentView === 'queries') {
+    const queries = DB.queries.filter(r => Object.values(r).some(v => v));
+    el.innerHTML = `
+      <div class="info-banner">✉ Queries will auto-populate here once Gmail is connected. Until then, log queries manually in Sheet 5 in Google Sheets.</div>
+      <div class="sec-hdr"><div class="sec-title">Query log (${queries.length})</div></div>
+      ${queries.length ? queries.map(q => {
+        const from = getVal(q,'from');
+        const country = getVal(q,'country');
+        const party = getVal(q,'party');
+        const product = getVal(q,'product');
+        const date = getVal(q,'date');
+        const summary = getVal(q,'query summary','summary');
+        const status = getVal(q,'status') || 'Open';
+        const response = getVal(q,'response','action');
+        return `<div class="qcard">
+          <div class="qcard-hdr">
+            <span class="qtag ${status.toLowerCase().includes('resolved')?'resolved':status.toLowerCase().includes('await')?'awaiting':'open'}">${status}</span>
+            <span style="font-size:12px;font-weight:700;color:#111;flex:1;margin-left:6px">${product||'—'} · ${country||'—'}</span>
+            <span style="font-size:11px;color:#999">${from||'—'}</span>
+          </div>
+          <div class="qcard-body">${summary||'No summary logged'}</div>
+          ${response ? `<div class="qcard-footer"><span class="qmeta">Response: ${response}</span><span class="qmeta">${date}</span></div>` : `<div class="qcard-footer"><span class="qmeta">${date||''}</span></div>`}
+        </div>`;
+      }).join('') : `<div class="empty"><div class="empty-icon">✉</div><div class="empty-text">No queries logged yet</div></div>`}
+    `;
+
+  } else if (currentView === 'expiry') {
+    const expiring = expiringRegs();
+    el.innerHTML = `
+      <div class="sec-hdr"><div class="sec-title">Expiring registrations (${expiring.length})</div></div>
+      ${expiring.length ? `<div class="panel"><div class="panel-body">${renderRegTable(expiring)}</div></div>` :
+        `<div class="empty"><div class="empty-icon">✅</div><div class="empty-text">No urgent expiry alerts right now</div></div>`}
+    `;
+
+  } else if (currentView === 'suppliers') {
+    el.innerHTML =
+      '<div class="sec-hdr"><div class="sec-title">API Suppliers & Vendors (' + DB.suppliers.length + ')</div></div>' +
+      (DB.suppliers.length === 0 ?
+        '<div class="info-banner">📌 Supplier details not filled in yet — add them to Sheet 3b_Suppliers in Google Sheets. Include: Supplier Name, Product (API) they supply, Contact Person, Email, Phone/WhatsApp.</div>' +
+        '<div class="empty"><div class="empty-icon">🏭</div><div class="empty-text">No suppliers added yet</div></div>'
+      :
+        '<div class="party-grid">' + DB.suppliers.map(function(s) {
+          var name = getVal(s,'Supplier Name','supplier name','name');
+          var product = getVal(s,'Product Name','product name','product');
+          var contact = getVal(s,'Contact Person','contact');
+          var email = getVal(s,'Email','email');
+          var phone = getVal(s,'Phone / WhatsApp','phone');
+          var notes = getVal(s,'Notes','notes');
+          var missing = !name || name.includes('fill in');
+          if (missing) return '';
+          return '<div class="party-card">' +
+            '<div class="party-name">' + name + '</div>' +
+            '<div class="party-countries">Supplies: ' + (product || '—') + '</div>' +
+            '<div class="party-contact ' + (contact && !contact.includes('fill in') ? 'filled' : '') + '">' +
               '<div class="contact-label">Contact</div><div>' + (contact && !contact.includes('fill in') ? contact : '— not filled —') + '</div>' +
             '</div>' +
             '<div class="party-contact ' + (email && !email.includes('fill in') ? 'filled' : '') + '">' +
@@ -20,3 +738,5 @@
 // ── start ────────────────────────────────────────────────────────────────────
 loadAllData();
 </script>
+</body>
+</html>

@@ -185,6 +185,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     <button class="nav-btn" id="nb-documents" onclick="go('documents')">📄 &nbsp;Documents</button>
     <button class="nav-btn" id="nb-parties" onclick="go('parties')">🤝 &nbsp;Parties</button>
     <button class="nav-btn" id="nb-queries" onclick="go('queries')">✉ &nbsp;Query inbox <span class="nav-badge blue" id="query-count">—</span></button>
+    <button class="nav-btn" id="nb-suppliers" onclick="go('suppliers')">🏭 &nbsp;Suppliers</button>
   </div>
   <div class="nav-group">
     <div class="nav-label">Alerts</div>
@@ -216,7 +217,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 const SHEET_ID = '1jTQPPfz_YcdqnJILmT4qYSfVsnHFOaxExydTX8_k-mM';
 const BASE = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=`;
 
-let DB = { products:[], registrations:[], parties:[], documents:[], queries:[], archive:[] };
+let DB = { products:[], registrations:[], parties:[], suppliers:[], documents:[], queries:[], archive:[] };
 let currentView = 'dashboard';
 let selectedProduct = null;
 let activeTab = 'regs';
@@ -249,13 +250,21 @@ async function loadAllData() {
       <div class="loading-text">Loading live data from Google Sheets...</div>
     </div>`;
   try {
-    const [products, registrations, parties, documents, queries, archive] = await Promise.all([
-      fetchSheet('1_Products'),
-      fetchSheet('2_Registrations'),
-      fetchSheet('3_Parties'),
-      fetchSheet('4_Documents'),
-      fetchSheet('5_Queries'),
-      fetchSheet('6_Archive'),
+    // Try multiple possible sheet name variants
+    const trySheets = async (...names) => {
+      for (const name of names) {
+        try { const r = await fetchSheet(name); if (r.length > 0) return r; } catch(e) {}
+      }
+      return [];
+    };
+    const [products, registrations, parties, documents, queries, archive, suppliers] = await Promise.all([
+      trySheets('1_Products','Products'),
+      trySheets('2_Registrations','Registrations'),
+      trySheets('3a_Parties','3_Parties','Parties'),
+      trySheets('4_Documents','Documents'),
+      trySheets('5_Queries','Queries'),
+      trySheets('6_Archive','Archive'),
+      trySheets('3b_Suppliers','Suppliers'),
     ]);
     DB.products = products;
     DB.registrations = registrations;
@@ -263,6 +272,11 @@ async function loadAllData() {
     DB.documents = documents;
     DB.queries = queries;
     DB.archive = archive;
+    DB.suppliers = suppliers || [];
+    console.log("Products cols:", DB.products[0] ? Object.keys(DB.products[0]) : "none");
+    console.log("Docs loaded:", DB.documents.length, "rows");
+    if(DB.documents[0]) console.log("Doc cols:", Object.keys(DB.documents[0]));
+    if(DB.registrations[0]) console.log("Reg cols:", Object.keys(DB.registrations[0]));
     dataLoaded = true;
     buildMarketNav();
     updateBadges();
@@ -281,10 +295,12 @@ async function loadAllData() {
 // ── helpers ──────────────────────────────────────────────────────────────────
 function getVal(row, ...keys) {
   for (const k of keys) {
-    const found = Object.keys(row).find(rk => rk.toLowerCase().includes(k.toLowerCase()));
-    if (found && row[found] !== '' && row[found] !== null) return String(row[found]).trim();
+    const exact = Object.keys(row).find(rk => rk.toLowerCase().trim() === k.toLowerCase().trim());
+    if (exact && row[exact] !== "" && row[exact] !== null && row[exact] !== undefined) return String(row[exact]).trim();
+    const partial = Object.keys(row).find(rk => rk.toLowerCase().includes(k.toLowerCase()));
+    if (partial && row[partial] !== "" && row[partial] !== null && row[partial] !== undefined) return String(row[partial]).trim();
   }
-  return '';
+  return "";
 }
 
 function getStatusClass(s) {
@@ -309,8 +325,11 @@ function getAlertClass(alert) {
 
 function expiringRegs() {
   return DB.registrations.filter(r => {
-    const alert = getVal(r, 'alert', 'expiry alert');
-    return alert && (alert.toUpperCase().includes('URGENT') || alert.toUpperCase().includes('DUE') || alert.toUpperCase().includes('EXPIRED'));
+    const alert = getVal(r,'Expiry Alert','alert','expiry alert');
+    if (alert && (alert.toUpperCase().includes('URGENT') || alert.toUpperCase().includes('DUE') || alert.toUpperCase().includes('EXPIRED'))) return true;
+    // Also check status
+    const status = getVal(r,'Registration Status','status');
+    return status && (status.toLowerCase().includes('pending renewal') || status.toLowerCase().includes('under review'));
   });
 }
 
@@ -400,7 +419,7 @@ function renderProductGrid(prods) {
     const statuses = [...new Set(regs.map(r => getVal(r,'registration status','status')))];
     return `<div class="prod-card ${selectedProduct===brand?'sel':''}" onclick="selectProduct('${brand.replace(/'/g,"\\'")}')">
       <div class="prod-name">${brand}</div>
-      <div class="prod-form">${[generic.split(' ').slice(0,3).join(' '), strength, form].filter(Boolean).join(' · ')}</div>
+      <div class="prod-form">${[generic ? generic.split(' ').slice(0,4).join(' ') : '', strength, form].filter(v=>v).join(' · ') || 'No generic name logged'}</div>
       <div class="pills">${statuses.map(s => `<span class="pill ${getStatusClass(s)}">${s||'—'}</span>`).join('')}</div>
       <div class="prod-footer">
         <span class="doc-ct">${regs.length} registration${regs.length!==1?'s':''} · ${markets.split(',').length} market${markets.split(',').length!==1?'s':''}</span>
@@ -455,10 +474,10 @@ function renderRegTable(regs) {
       const country = getVal(r,'country');
       const party = getVal(r,'party');
       const dossier = getVal(r,'dossier');
-      const status = getVal(r,'registration status','status');
-      const regnum = getVal(r,'registration no','reg number','regnum');
-      const validto = getVal(r,'valid up to','valid','expiry');
-      const alert = getVal(r,'alert','expiry alert');
+      const status = getVal(r,'Registration Status','registration status','status');
+      const regnum = getVal(r,'Registration No.','Registration No','registration no','regnum');
+      const validto = getVal(r,'Valid Up To','valid up to','expiry');
+      const alert = getVal(r,'Expiry Alert','alert','expiry alert');
       const driveLink = getVal(r,'drive');
       return `<tr>
         <td><strong>${brand}</strong></td>
@@ -476,22 +495,28 @@ function renderRegTable(regs) {
 }
 
 function renderDocRow(d) {
-  const name = getVal(d,'document name','name');
-  const type = getVal(d,'document type','type');
-  const scope = getVal(d,'scope');
-  const version = getVal(d,'version');
-  const expiry = getVal(d,'expiry');
-  const status = getVal(d,'status');
-  const driveLink = getVal(d,'drive');
-  const typeIco = type.toLowerCase().includes('cert') ? 'cert' : type.toLowerCase().includes('lic') ? 'lic' : type.toLowerCase().includes('art') || type.toLowerCase().includes('img') ? 'img' : type.toLowerCase().includes('dat') ? 'dat' : 'pdf';
-  return `<div class="doc-row">
-    <div class="doc-ico ${typeIco}">${type.substring(0,3).toUpperCase()}</div>
-    <div class="doc-inf">
-      <div class="doc-name">${name}</div>
-      <div class="doc-meta">${[scope, version, expiry ? `Expires: ${expiry}` : ''].filter(Boolean).join(' · ')}</div>
-    </div>
-    ${driveLink && driveLink !== '' ? `<a href="${driveLink}" target="_blank" class="drive-link">View file</a>` : '<span style="font-size:11px;color:#bbb">No file linked</span>'}
-  </div>`;
+  const name = getVal(d,'Document Name','document name','name');
+  const type = getVal(d,'Document Type','document type','type');
+  const scope = getVal(d,'Scope','scope');
+  const product = getVal(d,'Product (Brand Name)','product','brand');
+  const version = getVal(d,'Version','version');
+  const expiry = getVal(d,'Expiry Date (DD-MM-YYYY)','expiry date','expiry');
+  const status = getVal(d,'Status','status');
+  const driveLink = getVal(d,'Drive File Link (paste when uploaded)','drive file link','drive');
+  const notes = getVal(d,'Notes','notes');
+  const typeStr = type || 'DOC';
+  const typeIco = typeStr.toLowerCase().includes('cert') ? 'cert' : typeStr.toLowerCase().includes('lic') ? 'lic' : typeStr.toLowerCase().includes('art') ? 'img' : typeStr.toLowerCase().includes('stab') ? 'dat' : 'pdf';
+  const statusColor = status === 'Valid' ? '#15803d' : status === 'Not Valid' ? '#dc2626' : '#d97706';
+  const statusBg = status === 'Valid' ? '#dcfce7' : status === 'Not Valid' ? '#fee2e2' : '#fef3c7';
+  return "<div class="doc-row">" +
+    "<div class="doc-ico " + typeIco + "">" + typeStr.substring(0,3).toUpperCase() + "</div>" +
+    "<div class="doc-inf">" +
+      "<div class="doc-name">" + name + (product && product !== '---' ? " <span style="font-size:10px;color:#999">· " + product + "</span>" : '') + "</div>" +
+      "<div class="doc-meta">" + [scope, version, expiry ? 'Expires: '+expiry : '', notes].filter(Boolean).join(' · ') + "</div>" +
+    "</div>" +
+    (status ? "<span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:7px;background:" + statusBg + ";color:" + statusColor + ";flex-shrink:0">" + status + "</span>" : '') +
+    (driveLink && driveLink.startsWith('http') ? "<a href="" + driveLink + "" target="_blank" class="drive-link">View file</a>" : '<span style="font-size:11px;color:#bbb">—</span>') +
+  "</div>";
 }
 
 function renderArtworkTab(brand) {
@@ -593,24 +618,31 @@ function render() {
     `;
 
   } else if (currentView === 'documents') {
-    const companyDocs = DB.documents.filter(d => getVal(d,'scope').toLowerCase() === 'company');
-    const productDocs = DB.documents.filter(d => getVal(d,'scope').toLowerCase() !== 'company');
-    el.innerHTML = `
-      <div class="info-banner">📌 Documents are added here when you upload them to Google Drive. Each row links directly to the file. ${DB.documents.length === 7 ? 'Only company documents are logged so far — add product documents as you work through each dossier.' : ''}</div>
-      ${companyDocs.length ? `<div class="sec-hdr"><div class="sec-title">Company documents (${companyDocs.length})</div></div><div class="panel"><div class="panel-body">${companyDocs.map(renderDocRow).join('')}</div></div>` : ''}
-      ${productDocs.length ? `<div class="sec-hdr"><div class="sec-title">Product documents (${productDocs.length})</div></div><div class="panel"><div class="panel-body">${productDocs.map(renderDocRow).join('')}</div></div>` : ''}
-      ${DB.documents.length === 0 ? `<div class="empty"><div class="empty-icon">📄</div><div class="empty-text">No documents logged yet — add rows to Sheet 4 in Google Sheets</div></div>` : ''}
-    `;
+    const companyDocs = DB.documents.filter(d => (getVal(d,'Scope','scope') || '').toLowerCase().includes('company'));
+    const coppDocs = DB.documents.filter(d => (getVal(d,'Document Name','document name','name') || '').toLowerCase().includes('copp'));
+    const otherDocs = DB.documents.filter(d => !(getVal(d,'Scope','scope') || '').toLowerCase().includes('company') && !(getVal(d,'Document Name','document name','name') || '').toLowerCase().includes('copp'));
+    const validCount = DB.documents.filter(d => (getVal(d,'Status','status') || '').toLowerCase() === 'valid').length;
+    const invalidCount = DB.documents.filter(d => (getVal(d,'Status','status') || '').toLowerCase().includes('not valid')).length;
+    el.innerHTML =
+      '<div class="stats-grid" style="grid-template-columns:repeat(3,1fr)">' +
+        '<div class="stat-card"><div class="stat-lbl">Total documents</div><div class="stat-val blue">' + DB.documents.length + '</div></div>' +
+        '<div class="stat-card"><div class="stat-lbl">Valid</div><div class="stat-val green">' + validCount + '</div></div>' +
+        '<div class="stat-card"><div class="stat-lbl">Not valid / expired</div><div class="stat-val red">' + invalidCount + '</div></div>' +
+      '</div>' +
+      (companyDocs.length ? '<div class="sec-hdr"><div class="sec-title">Company documents (' + companyDocs.length + ')</div></div><div class="panel"><div class="panel-body">' + companyDocs.map(renderDocRow).join('') + '</div></div>' : '') +
+      (coppDocs.length ? '<div class="sec-hdr"><div class="sec-title">COPPs by market (' + coppDocs.length + ')</div></div><div class="panel"><div class="panel-body">' + coppDocs.map(renderDocRow).join('') + '</div></div>' : '') +
+      (otherDocs.length ? '<div class="sec-hdr"><div class="sec-title">Product documents (' + otherDocs.length + ')</div></div><div class="panel"><div class="panel-body">' + otherDocs.map(renderDocRow).join('') + '</div></div>' : '') +
+      (DB.documents.length === 0 ? '<div class="empty"><div class="empty-icon">📄</div><div class="empty-text">No documents loaded — check Sheet 4 tab name in Google Sheets</div></div>' : '');
 
   } else if (currentView === 'parties') {
     el.innerHTML = `
       <div class="sec-hdr"><div class="sec-title">Parties (${DB.parties.length})</div></div>
       <div class="party-grid">${DB.parties.map(p => {
-        const name = getVal(p,'party name','name');
-        const countries = getVal(p,'countries');
-        const contact = getVal(p,'contact');
-        const email = getVal(p,'email');
-        const phone = getVal(p,'phone');
+        const name = getVal(p,'Party Name','party name','name');
+        const countries = getVal(p,'Countries Covered','countries');
+        const contact = getVal(p,'Contact Person','contact');
+        const email = getVal(p,'Email','email');
+        const phone = getVal(p,'Phone / WhatsApp','phone');
         const missing = !contact || contact.includes('fill in');
         return `<div class="party-card">
           <div class="party-name">${name}</div>
@@ -661,6 +693,37 @@ function render() {
       ${expiring.length ? `<div class="panel"><div class="panel-body">${renderRegTable(expiring)}</div></div>` :
         `<div class="empty"><div class="empty-icon">✅</div><div class="empty-text">No urgent expiry alerts right now</div></div>`}
     `;
+
+  } else if (currentView === 'suppliers') {
+    el.innerHTML =
+      '<div class="sec-hdr"><div class="sec-title">API Suppliers & Vendors (' + DB.suppliers.length + ')</div></div>' +
+      (DB.suppliers.length === 0 ?
+        '<div class="info-banner">📌 Supplier details not filled in yet — add them to Sheet 3b_Suppliers in Google Sheets. Include: Supplier Name, Product (API) they supply, Contact Person, Email, Phone/WhatsApp.</div>' +
+        '<div class="empty"><div class="empty-icon">🏭</div><div class="empty-text">No suppliers added yet</div></div>'
+      :
+        '<div class="party-grid">' + DB.suppliers.map(function(s) {
+          var name = getVal(s,'Supplier Name','supplier name','name');
+          var product = getVal(s,'Product Name','product name','product');
+          var contact = getVal(s,'Contact Person','contact');
+          var email = getVal(s,'Email','email');
+          var phone = getVal(s,'Phone / WhatsApp','phone');
+          var notes = getVal(s,'Notes','notes');
+          var missing = !name || name.includes('fill in');
+          if (missing) return '';
+          return '<div class="party-card">' +
+            '<div class="party-name">' + name + '</div>' +
+            '<div class="party-countries">Supplies: ' + (product || '—') + '</div>' +
+            '<div class="party-contact ' + (contact && !contact.includes('fill in') ? 'filled' : '') + '">' +
+              '<div class="contact-label">Contact</div><div>' + (contact && !contact.includes('fill in') ? contact : '— not filled —') + '</div>' +
+            '</div>' +
+            '<div class="party-contact ' + (email && !email.includes('fill in') ? 'filled' : '') + '">' +
+              '<div class="contact-label">Email</div><div>' + (email && !email.includes('fill in') ? email : '— not filled —') + '</div>' +
+            '</div>' +
+            (phone && !phone.includes('fill in') ? '<div class="party-contact filled"><div class="contact-label">WhatsApp</div><div>' + phone + '</div></div>' : '') +
+            (notes ? '<div style="font-size:11px;color:#666;margin-top:6px;padding-top:6px;border-top:1px solid #f0f0ed">' + notes + '</div>' : '') +
+          '</div>';
+        }).filter(Boolean).join('') + '</div>'
+      );
 
   } else if (currentView === 'archive') {
     el.innerHTML = `

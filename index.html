@@ -215,7 +215,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 
 <script>
 const SHEET_ID = '1jTQPPfz_YcdqnJILmT4qYSfVsnHFOaxExydTX8_k-mM';
-const BASE = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=`;
+const BASE = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&headers=2&sheet=`;
 
 let DB = { products:[], registrations:[], parties:[], suppliers:[], documents:[], queries:[], archive:[] };
 let currentView = 'dashboard';
@@ -231,15 +231,17 @@ async function fetchSheet(sheetName) {
   const text = await res.text();
   const json = JSON.parse(text.replace(/^.*?({.*}).*?$/s, '$1'));
   if (!json.table || !json.table.rows) return [];
-  const cols = json.table.cols.map(c => c.label || '');
+  // Clean column names - strip newlines, extra spaces
+  const cols = json.table.cols.map(c => (c.label || '').replace(/\n/g, ' ').replace(/\s+/g, ' ').trim());
   return json.table.rows.slice(1).map(row => {
     const obj = {};
     cols.forEach((col, i) => {
       const cell = row.c && row.c[i];
-      obj[col] = cell ? (cell.f || cell.v || '') : '';
+      const val = cell ? (cell.f !== undefined && cell.f !== null ? String(cell.f) : cell.v !== undefined && cell.v !== null ? String(cell.v) : '') : '';
+      if (col) obj[col] = val.trim();
     });
     return obj;
-  }).filter(r => Object.values(r).some(v => v !== '' && v !== null));
+  }).filter(r => Object.values(r).some(v => v !== '' && v !== null && v !== 'null'));
 }
 
 // ── load all sheets ──────────────────────────────────────────────────────────
@@ -325,10 +327,10 @@ function getAlertClass(alert) {
 
 function expiringRegs() {
   return DB.registrations.filter(r => {
-    const alert = getVal(r,'Expiry Alert','alert','expiry alert');
+    const alert = getVal(r,'Expiry Alert','expiry alert','alert');
     if (alert && (alert.toUpperCase().includes('URGENT') || alert.toUpperCase().includes('DUE') || alert.toUpperCase().includes('EXPIRED'))) return true;
     // Also check status
-    const status = getVal(r,'Registration Status','status');
+    const status = getVal(r,'Registration Status','registration status','status');
     return status && (status.toLowerCase().includes('pending renewal') || status.toLowerCase().includes('under review'));
   });
 }
@@ -396,8 +398,8 @@ function setTab(t) { activeTab = t; render(); }
 function handleSearch(val) {
   if (!val.trim()) { render(); return; }
   const v = val.toLowerCase();
-  const mp = DB.products.filter(p => getVal(p,'brand','brand name').toLowerCase().includes(v) || getVal(p,'generic').toLowerCase().includes(v));
-  const mr = DB.registrations.filter(r => getVal(r,'brand').toLowerCase().includes(v) || getVal(r,'country').toLowerCase().includes(v) || getVal(r,'party').toLowerCase().includes(v));
+  const mp = DB.products.filter(p => getVal(p,'Brand Name (as on DRC / artwork)','Brand Name','brand name','brand').toLowerCase().includes(v) || getVal(p,'Generic Name (INN — verify vs DRC)','Generic Name','generic name','generic').toLowerCase().includes(v));
+  const mr = DB.registrations.filter(r => getVal(r,'Brand Name','brand name','brand').toLowerCase().includes(v) || getVal(r,'Country','country').toLowerCase().includes(v) || getVal(r,'Party','party').toLowerCase().includes(v));
   let h = `<div class="sec-hdr"><div class="sec-title">Results for "${val}"</div></div>`;
   if (mp.length) h += renderProductGrid(mp);
   if (mr.length) h += `<div class="sec-hdr" style="margin-top:10px"><div class="sec-title">Registrations (${mr.length})</div></div>` + renderRegTable(mr);
@@ -409,13 +411,13 @@ function handleSearch(val) {
 function renderProductGrid(prods) {
   if (!prods.length) return `<div class="empty"><div class="empty-icon">📦</div><div class="empty-text">No products found</div></div>`;
   return `<div class="prod-grid">${prods.map(p => {
-    const brand = getVal(p, 'brand', 'brand name');
-    const generic = getVal(p, 'generic');
-    const strength = getVal(p, 'strength');
-    const form = getVal(p, 'dosage', 'form');
-    const markets = getVal(p, 'active markets', 'markets');
-    const driveLink = getVal(p, 'drive');
-    const regs = DB.registrations.filter(r => getVal(r,'brand').toLowerCase() === brand.toLowerCase());
+    const brand = getVal(p,'Brand Name (as on DRC / artwork)','Brand Name','brand name','brand');
+    const generic = getVal(p,'Generic Name (INN — verify vs DRC)','Generic Name','generic name','generic');
+    const strength = getVal(p,'Strength','strength');
+    const form = getVal(p,'Dosage Form','dosage form','form');
+    const markets = getVal(p,'Active Markets','active markets','markets');
+    const driveLink = getVal(p,'Drive Folder Link (paste when ready)','Drive Folder Link','drive folder','drive');
+    const regs = DB.registrations.filter(r => getVal(r,'Brand Name','brand name','brand').toLowerCase() === brand.toLowerCase());
     const statuses = [...new Set(regs.map(r => getVal(r,'registration status','status')))];
     return `<div class="prod-card ${selectedProduct===brand?'sel':''}" onclick="selectProduct('${brand.replace(/'/g,"\\'")}')">
       <div class="prod-name">${brand}</div>
@@ -430,17 +432,17 @@ function renderProductGrid(prods) {
 }
 
 function renderProductPanel() {
-  const p = DB.products.find(p => getVal(p,'brand','brand name') === selectedProduct);
+  const p = DB.products.find(p => getVal(p,'Brand Name (as on DRC / artwork)','Brand Name','brand name','brand') === selectedProduct);
   if (!p) return '';
   const brand = getVal(p, 'brand','brand name');
-  const generic = getVal(p, 'generic');
-  const strength = getVal(p, 'strength');
+  const generic = getVal(p,'Generic Name (INN — verify vs DRC)','Generic Name','generic name','generic');
+  const strength = getVal(p,'Strength','strength');
   const form = getVal(p, 'dosage','form');
-  const driveLink = getVal(p, 'drive');
-  const regs = DB.registrations.filter(r => getVal(r,'brand').toLowerCase() === brand.toLowerCase());
+  const driveLink = getVal(p,'Drive Folder Link (paste when ready)','Drive Folder Link','drive folder','drive');
+  const regs = DB.registrations.filter(r => getVal(r,'Brand Name','brand name','brand').toLowerCase() === brand.toLowerCase());
   const docs = DB.documents.filter(d => {
-    const scope = getVal(d,'scope').toLowerCase();
-    const prod = getVal(d,'product','brand').toLowerCase();
+    const scope = getVal(d,'Scope','scope').toLowerCase();
+    const prod = getVal(d,'Product (Brand Name)','product (brand name)','product','brand').toLowerCase();
     return scope === 'company' || prod === brand.toLowerCase() || prod.includes(brand.toLowerCase());
   });
 
@@ -470,14 +472,14 @@ function renderRegTable(regs) {
   return `<table class="data-table">
     <thead><tr><th>Product</th><th>Country</th><th>Party</th><th>Dossier Type</th><th>Status</th><th>Reg Number</th><th>Valid Until</th><th>Alert</th></tr></thead>
     <tbody>${regs.map(r => {
-      const brand = getVal(r,'brand');
-      const country = getVal(r,'country');
-      const party = getVal(r,'party');
-      const dossier = getVal(r,'dossier');
+      const brand = getVal(r,'Brand Name','brand name','brand');
+      const country = getVal(r,'Country','country');
+      const party = getVal(r,'Party','party');
+      const dossier = getVal(r,'Dossier / Checklist Type','Dossier','dossier type','dossier');
       const status = getVal(r,'Registration Status','registration status','status');
-      const regnum = getVal(r,'Registration No.','Registration No','registration no','regnum');
-      const validto = getVal(r,'Valid Up To','valid up to','expiry');
-      const alert = getVal(r,'Expiry Alert','alert','expiry alert');
+      const regnum = getVal(r,'Registration No. (if available)','Registration No.','Registration No','reg number','regnum');
+      const validto = getVal(r,'Valid Up To','valid up to','expiry date','expiry');
+      const alert = getVal(r,'Expiry Alert','expiry alert','alert');
       const driveLink = getVal(r,'drive');
       return `<tr>
         <td><strong>${brand}</strong></td>
@@ -522,7 +524,7 @@ function renderDocRow(d) {
 function renderArtworkTab(brand) {
   const artDocs = DB.documents.filter(d => {
     const name = getVal(d,'document name','name').toLowerCase();
-    const prod = getVal(d,'product','brand').toLowerCase();
+    const prod = getVal(d,'Product (Brand Name)','product (brand name)','product','brand').toLowerCase();
     return (name.includes('foil') || name.includes('carton') || name.includes('insert') || name.includes('artwork')) && prod.includes(brand.toLowerCase());
   });
   if (!artDocs.length) return `<div class="empty"><div class="empty-icon">🎨</div><div class="empty-text">No artwork documents logged yet</div></div>`;
@@ -535,10 +537,10 @@ function render() {
   const el = document.getElementById('content');
 
   if (currentView === 'dashboard') {
-    const activeRegs = DB.registrations.filter(r => getVal(r,'registration status','status').toLowerCase() !== 'discontinued');
+    const activeRegs = DB.registrations.filter(r => getVal(r,'Registration Status','registration status','status').toLowerCase() !== 'discontinued');
     const expiring = expiringRegs();
     const queries = openQueries();
-    const newProds = DB.registrations.filter(r => getVal(r,'registration status','status').toLowerCase().includes('new'));
+    const newProds = DB.registrations.filter(r => getVal(r,'Registration Status','registration status','status').toLowerCase().includes('new'));
 
     el.innerHTML = `
       <div class="stats-grid">
@@ -550,7 +552,7 @@ function render() {
         <div class="stat-card" onclick="go('registrations')">
           <div class="stat-lbl">Active registrations</div>
           <div class="stat-val green">${activeRegs.length}</div>
-          <div class="stat-sub">across ${[...new Set(activeRegs.map(r=>getVal(r,'country')))].filter(Boolean).length} markets</div>
+          <div class="stat-sub">across ${[...new Set(activeRegs.map(r=>getVal(r,'Country','country')))].filter(Boolean).length} markets</div>
         </div>
         <div class="stat-card" onclick="go('expiry')">
           <div class="stat-lbl">Expiry alerts</div>
@@ -567,9 +569,9 @@ function render() {
       ${expiring.length > 0 ? `
       <div class="sec-hdr"><div class="sec-title">⚠ Expiring registrations</div></div>
       <div class="panel"><div class="panel-body">${expiring.slice(0,5).map(r => {
-        const brand = getVal(r,'brand');
-        const country = getVal(r,'country');
-        const party = getVal(r,'party');
+        const brand = getVal(r,'Brand Name','brand name','brand');
+        const country = getVal(r,'Country','country');
+        const party = getVal(r,'Party','party');
         const validto = getVal(r,'valid up to','valid','expiry');
         const alert = getVal(r,'alert','expiry alert');
         return `<div class="exp-row">
@@ -602,14 +604,14 @@ function render() {
     `;
 
   } else if (currentView === 'registrations') {
-    const regs = marketFilter === 'all' ? DB.registrations : DB.registrations.filter(r => getVal(r,'country') === marketFilter);
+    const regs = marketFilter === 'all' ? DB.registrations : DB.registrations.filter(r => getVal(r,'Country','country') === marketFilter);
     const activeRegs = regs.filter(r => !getVal(r,'registration status','status').toLowerCase().includes('discontinued'));
     el.innerHTML = `
       <div class="sec-hdr">
         <div class="sec-title">Registrations${marketFilter!=='all'?' · '+marketFilter:''} (${activeRegs.length} active)</div>
         <div class="filter-row">
           <button class="filt-btn ${marketFilter==='all'?'on':''}" onclick="setMarket('all')">All</button>
-          ${[...new Set(DB.registrations.map(r=>getVal(r,'country')).filter(Boolean))].sort().map(c =>
+          ${[...new Set(DB.registrations.map(r=>getVal(r,'Country','country')).filter(Boolean))].sort().map(c =>
             `<button class="filt-btn ${marketFilter===c?'on':''}" onclick="setMarket('${c.replace(/'/g,"\\'")}'">${c}</button>`
           ).join('')}
         </div>
@@ -639,10 +641,10 @@ function render() {
       <div class="sec-hdr"><div class="sec-title">Parties (${DB.parties.length})</div></div>
       <div class="party-grid">${DB.parties.map(p => {
         const name = getVal(p,'Party Name','party name','name');
-        const countries = getVal(p,'Countries Covered','countries');
-        const contact = getVal(p,'Contact Person','contact');
+        const countries = getVal(p,'Countries Covered','countries covered','countries');
+        const contact = getVal(p,'Contact Person','contact person','contact');
         const email = getVal(p,'Email','email');
-        const phone = getVal(p,'Phone / WhatsApp','phone');
+        const phone = getVal(p,'Phone / WhatsApp','phone / whatsapp','phone','whatsapp');
         const missing = !contact || contact.includes('fill in');
         return `<div class="party-card">
           <div class="party-name">${name}</div>
